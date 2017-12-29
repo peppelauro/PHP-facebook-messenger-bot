@@ -8,12 +8,14 @@ class FacebookBot
     private $_validationToken;
     private $_pageAccessToken;
     private $_receivedMessages;
+    private $_handleLog;
 
     public function __construct($validationToken, $pageAccessToken)
     {
         $this->_validationToken = $validationToken;
         $this->_pageAccessToken = $pageAccessToken;
         $this->setupWebhook();
+        $this->_handleLog = fopen("/home/ubuntu/workspace/FacebookBot.log","a+");
     }
 
     public function getReceivedMessages()
@@ -39,16 +41,26 @@ class FacebookBot
         }
     }
 
-    public function sendTextMessage($recipientId, $text)
+    public function sendTextMessage($recipientId, $text, $quick_replies = null, $attachment = null)
     {
         $url = self::BASE_URL . "me/messages?access_token=%s";
         $url = sprintf($url, $this->getPageAccessToken());
+        //self::echoLog($url);
         $recipient = new \stdClass();
         $recipient->id = $recipientId;
         $message = new \stdClass();
         $message->text = $text;
-        $parameters = ['recipient' => $recipient, 'message' => $message];
+        if (is_array($quick_replies))
+        {
+            $message->quick_replies = $quick_replies;
+        }
+        if ($attachment)
+        {
+            $message->attachment = $attachment; 
+        }
+        $parameters = ['messaging_type' => 'RESPONSE','recipient' => $recipient, 'message' => $message];
         $response = self::executePost($url, $parameters, true);
+        $this->echoLog($response);
         if ($response) {
             $responseObject = json_decode($response);
             return is_object($responseObject) && isset($responseObject->recipient_id) && isset($responseObject->message_id);
@@ -56,16 +68,17 @@ class FacebookBot
         return false;
     }
 
-    public function setWelcomeMessage($pageId, $text)
+    public function setWelcomeMessage($pageId, $text="Hello {{user_first_name}}!")
     {
-        $url = self::BASE_URL . "%s/thread_settings?access_token=%s";
-        $url = sprintf($url, $pageId, $this->getPageAccessToken());
-        $request = new \stdClass();
-        $request->setting_type = "greeting";
-        $greeting = new stdClass();
+        $url = self::BASE_URL . "me/messenger_profile?access_token=%s";
+        $url = sprintf($url, $this->getPageAccessToken());
+        
+        $greeting = new \stdClass();
+        $greeting->locale = 'default';
         $greeting->text = $text;
-        $request->greeting = $greeting;
-        $response = self::executePost($url, $request, true);
+        $parameters = ['greeting'=>array($greeting)];
+        $response = self::executePost($url, $parameters, true);
+        $this->echoLog(serialize($response));
         if ($response) {
             $responseObject = json_decode($response);
             return is_object($responseObject) && isset($responseObject->result) && strpos($responseObject->result, 'Success') !== false;
@@ -77,8 +90,10 @@ class FacebookBot
     {
         $request = self::getJsonRequest();
         if (!$request) return;
+        //$this->echoLog("REQUEST:\n".serialize($request)."\n");
         $entries = isset($request->entry) ? $request->entry : null;
         if (!$entries) return;
+        $this->echoLog("\nENTRIES:".serialize($entries)."\n");
         $messages = [];
         foreach ($entries as $entry) {
             $messagingList = isset($entry->messaging) ? $entry->messaging : null;
@@ -89,10 +104,20 @@ class FacebookBot
                 $message->senderId = isset($messaging->sender->id) ? $messaging->sender->id : null;
                 $message->recipientId = isset($messaging->recipient->id) ? $messaging->recipient->id : null;
                 $message->timestamp = isset($messaging->timestamp) ? $messaging->timestamp : null;
-                $message->messageId = isset($messaging->message->mid) ? $messaging->message->mid : null;
-                $message->sequenceNumber = isset($messaging->message->seq) ? $messaging->message->seq : null;
-                $message->text = isset($messaging->message->text) ? $messaging->message->text : null;
-                $message->attachments = isset($messaging->message->attachments) ? $messaging->message->attachments : null;
+                if(isset($messaging->message))
+                {
+                    $message->messageId = isset($messaging->message->mid) ? $messaging->message->mid : null;
+                    //$message->sequenceNumber = isset($messaging->message->seq) ? $messaging->message->seq : null; //Forse rimosso
+                    $message->text = isset($messaging->message->text) ? $messaging->message->text : null;
+                    $message->attachments = isset($messaging->message->attachments) ? $messaging->message->attachments : null;
+                    $message->quick_reply = isset($messaging->message->quick_reply) ? $messaging->message->quick_reply : null;
+                }
+                if(isset($messaging->postback))
+                {
+                    //$this->echoLog('POSTBACK: '.serialize($messaging->postback));
+                    $message->payload = $messaging->postback->payload;
+                    $messages[] = $message;
+                }
                 $messages[] = $message;
             }
         }
@@ -111,6 +136,57 @@ class FacebookBot
         return false;
     }
 
+    public function setSenderAction($pageId, $action='typing_on')
+    {
+        $url = self::BASE_URL . "me/messages?access_token=%s";
+        $url = sprintf($url, $this->getPageAccessToken());
+        $tmp = new \stdClass();
+        $tmp->id=$pageId;
+        $request = new \stdClass();
+        $request->recipient = $tmp;
+        $request->sender_action = $action;
+        $response = self::executePost($url, $request, true);
+        if ($response) {
+            $responseObject = json_decode($response);
+            return is_object($responseObject) && isset($responseObject->result) && strpos($responseObject->result, 'Success') !== false;
+        }
+        return false;
+    }
+    
+    public function setGetStartedButton($pageId, $payload)
+    {
+        $url = self::BASE_URL . "me/messenger_profile?access_token=%s";
+        $url = sprintf($url, $this->getPageAccessToken());
+        
+        $request = new \stdClass();
+        $request->payload = $payload;
+        $parameters = ['get_started' => $request];
+        $response = self::executePost($url, $parameters, true);
+        $this->echoLog($response);
+        if ($response) {
+            $responseObject = json_decode($response);
+            return is_object($responseObject) && isset($responseObject->result) && strpos($responseObject->result, 'Success') !== false;
+        }
+        return false;
+    }
+    
+    public function setPersistentMenu($pageId, $text="Hello {{user_first_name}}!")
+    {
+        $url = self::BASE_URL . "messenger_profile?access_token=%s";
+        $url = sprintf($url, $this->getPageAccessToken());
+        $request = new \stdClass();
+        $greeting = new \stdClass();
+        $greeting->text = $text;
+        $request->greeting = $greeting;
+        $parameters = ['greeting' => [$request]];
+        $response = self::executePost($url, $request, true);
+        if ($response) {
+            $responseObject = json_decode($response);
+            return is_object($responseObject) && isset($responseObject->result) && strpos($responseObject->result, 'Success') !== false;
+        }
+        return false;
+    }
+    
     private static function getJsonRequest()
     {
         $content = file_get_contents("php://input");
@@ -136,5 +212,10 @@ class FacebookBot
         $response = curl_exec($ch);
         curl_close($ch);
         return $response;
+    }
+    
+    public function echoLog($buf)
+    {
+        fwrite($this->_handleLog,"\n".$buf);
     }
 }
