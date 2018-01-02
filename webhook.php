@@ -2,8 +2,8 @@
 require_once 'config.php';
 require_once 'FacebookBot.php';
 $bot = new FacebookBot(FACEBOOK_VALIDATION_TOKEN, FACEBOOK_PAGE_ACCESS_TOKEN);
-$bot->setWelcomeMessage(FACEBOOK_PAGE_ID,"Hello {{user_first_name}}!\n\nUn bot di test");
-$bot->setGetStartedButton(FACEBOOK_PAGE_ID,'PAYLOAD_START');
+//$bot->setWelcomeMessage(FACEBOOK_PAGE_ID,"Hello {{user_first_name}}!\n\nUn bot di test");
+//$bot->setGetStartedButton(FACEBOOK_PAGE_ID,'PAYLOAD_START');
 //$bot->setPersistentMenu();
 $bot->run();
 $messages = $bot->getReceivedMessages();
@@ -20,11 +20,11 @@ foreach ($messages as $message)
 				$quickrep1 = new \stdClass();
 				$quickrep1->content_type = 'text';
 				$quickrep1->title = 'TEST1';
-				$quickrep1->payload = 'test1';
+				$quickrep1->payload = 'PAYLOAD_TEST1';
 				$quickrep2 = new \stdClass();
 				$quickrep2->content_type = 'text';
 				$quickrep2->title = 'TEST2';
-				$quickrep2->payload = 'test2';
+				$quickrep2->payload = 'PAYLOAD_TEST2';
 				$bot->sendTextMessage($recipientId, $message->text,[$quickrep1,$quickrep2]);
 				break;
 			case "test attachment":

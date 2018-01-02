@@ -116,7 +116,6 @@ class FacebookBot
                 {
                     //$this->echoLog('POSTBACK: '.serialize($messaging->postback));
                     $message->payload = $messaging->postback->payload;
-                    $messages[] = $message;
                 }
                 $messages[] = $message;
             }
@@ -170,16 +169,26 @@ class FacebookBot
         return false;
     }
     
-    public function setPersistentMenu($pageId, $text="Hello {{user_first_name}}!")
+    public function setPersistentMenu()
     {
-        $url = self::BASE_URL . "messenger_profile?access_token=%s";
+        $url = self::BASE_URL . "me/messenger_profile?access_token=%s";
         $url = sprintf($url, $this->getPageAccessToken());
         $request = new \stdClass();
-        $greeting = new \stdClass();
-        $greeting->text = $text;
-        $request->greeting = $greeting;
-        $parameters = ['greeting' => [$request]];
-        $response = self::executePost($url, $request, true);
+        $request->locale = 'default';
+        $menu_item1 = new \stdClass();
+        $menu_item1->title = 'Menu item 1';
+        $menu_item1->type = 'postback';
+        $menu_item1->payload = 'MENU1_PAYLOAD';
+        $menu_item2 = new \stdClass();
+        $menu_item2->title = 'Menu item 2';
+        $menu_item2->type = 'postback';
+        $menu_item2->payload = 'MENU2_PAYLOAD';
+        
+        $request->call_to_actions = [$menu_item1,$menu_item2];
+        $parameters = ['persistent_menu' => [$request]];
+        $response = self::executePost($url, $parameters, true);
+        $this->echoLog(serialize($request));
+        $this->echoLog($response);
         if ($response) {
             $responseObject = json_decode($response);
             return is_object($responseObject) && isset($responseObject->result) && strpos($responseObject->result, 'Success') !== false;
