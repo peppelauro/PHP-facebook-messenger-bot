@@ -50,12 +50,10 @@ class FacebookBot
         $recipient->id = $recipientId;
         $message = new \stdClass();
         $message->text = $text;
-        if (is_array($quick_replies))
-        {
+        if (is_array($quick_replies)) {
             $message->quick_replies = $quick_replies;
         }
-        if ($attachment)
-        {
+        if ($attachment) {
             $message->attachment = $attachment; 
         }
         $parameters = ['messaging_type' => 'RESPONSE','recipient' => $recipient, 'message' => $message];
@@ -104,16 +102,14 @@ class FacebookBot
                 $message->senderId = isset($messaging->sender->id) ? $messaging->sender->id : null;
                 $message->recipientId = isset($messaging->recipient->id) ? $messaging->recipient->id : null;
                 $message->timestamp = isset($messaging->timestamp) ? $messaging->timestamp : null;
-                if(isset($messaging->message))
-                {
+                if(isset($messaging->message)) {
                     $message->messageId = isset($messaging->message->mid) ? $messaging->message->mid : null;
                     //$message->sequenceNumber = isset($messaging->message->seq) ? $messaging->message->seq : null; //Forse rimosso
                     $message->text = isset($messaging->message->text) ? $messaging->message->text : null;
                     $message->attachments = isset($messaging->message->attachments) ? $messaging->message->attachments : null;
                     $message->quick_reply = isset($messaging->message->quick_reply) ? $messaging->message->quick_reply : null;
                 }
-                if(isset($messaging->postback))
-                {
+                if(isset($messaging->postback)) {
                     //$this->echoLog('POSTBACK: '.serialize($messaging->postback));
                     $message->payload = $messaging->postback->payload;
                 }
@@ -179,14 +175,34 @@ class FacebookBot
         $menu_item1->title = 'Menu item 1';
         $menu_item1->type = 'postback';
         $menu_item1->payload = 'MENU1_PAYLOAD';
+        
         $menu_item2 = new \stdClass();
         $menu_item2->title = 'Menu item 2';
-        $menu_item2->type = 'postback';
-        $menu_item2->payload = 'MENU2_PAYLOAD';
+        $menu_item2->type = 'web_url';
+        $menu_item2->url = "https://fantagiochi-peppelauro.c9users.io/test.html";
+        $menu_item2->webview_height_ratio = "compact";
+        $menu_item2->messenger_extensions = true;
+        $menu_item2->webview_share_button = 'hide';
         
         $request->call_to_actions = [$menu_item1,$menu_item2];
         $parameters = ['persistent_menu' => [$request]];
         $response = self::executePost($url, $parameters, true);
+        $this->echoLog(serialize($request));
+        $this->echoLog($response);
+        if ($response) {
+            $responseObject = json_decode($response);
+            return is_object($responseObject) && isset($responseObject->result) && strpos($responseObject->result, 'Success') !== false;
+        }
+        return false;
+    }
+    
+    public function setWhitelistedDomains($domains)
+    {
+        $url = self::BASE_URL . "me/messenger_profile?access_token=%s";
+        $url = sprintf($url, $this->getPageAccessToken());
+        
+        $request = ['whitelisted_domains' => $domains];
+        $response = self::executePost($url, $request, true);
         $this->echoLog(serialize($request));
         $this->echoLog($response);
         if ($response) {
