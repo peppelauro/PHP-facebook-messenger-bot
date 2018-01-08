@@ -4,7 +4,17 @@ require_once 'FacebookBot.php';
 $bot = new FacebookBot(FACEBOOK_VALIDATION_TOKEN, FACEBOOK_PAGE_ACCESS_TOKEN);
 //$bot->setWelcomeMessage(FACEBOOK_PAGE_ID,"Hello {{user_first_name}}!\n\nUn bot di test");
 //$bot->setGetStartedButton(FACEBOOK_PAGE_ID,'PAYLOAD_START');
+//$bot->setWhitelistedDomains(['https://whitelistdomain.io/']);
 //$bot->setPersistentMenu();
+
+$text_help = <<< HHH
+Ecco i comandi che riconosco:
+	- help, aiuto
+	- test quickreply
+	- test attachment
+	...
+HHH;
+
 $bot->run();
 $messages = $bot->getReceivedMessages();
 $bot->echoLog("\n\n".serialize($messages)."\n\n");
@@ -15,6 +25,10 @@ foreach ($messages as $message)
 	{
 		switch($message->text)
 		{
+			case "help":
+			case "aiuto":
+				$bot->sendTextMessage($recipientId,$text_help);
+				break;
 			case "test quickreply":
 				//DEBUG: $bot->sendTextMessage($recipientId, 'Rispondo con:'.serialize($message));
 				$quickrep1 = new \stdClass();
